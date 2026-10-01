@@ -37,7 +37,6 @@ def replace_member(
     data: schemas.MemberCreate,
     db: Session = Depends(get_db),
 ):
-    # PUT принимает полное представление ресурса.
     update_data = schemas.MemberUpdate(**data.model_dump())
     return service.update_member(db, member_id, update_data)
 
