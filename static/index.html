@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Soprano Family Registry</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 980px;
+        margin: 40px auto;
+        padding: 0 20px;
+        background: #f6f6f6;
+      }
+      h1 {
+        margin-bottom: 6px;
+      }
+      .muted {
+        color: #666;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        align-items: start;
+      }
+      .card {
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        padding: 18px;
+      }
+      label {
+        display: block;
+        margin-top: 10px;
+        font-size: 14px;
+      }
+      input,
+      select {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 9px;
+        margin-top: 4px;
+      }
+      button {
+        padding: 9px 12px;
+        margin: 10px 6px 0 0;
+        cursor: pointer;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+      }
+      th,
+      td {
+        border-bottom: 1px solid #ddd;
+        padding: 9px;
+        text-align: left;
+        font-size: 14px;
+      }
+      tr:hover {
+        background: #f3f3f3;
+      }
+      .danger {
+        color: #a00;
+      }
+      .message {
+        min-height: 22px;
+        margin-top: 10px;
+      }
+      @media (max-width: 760px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Soprano Family Registry</h1>
+    <p class="muted">
+      CRUD-приложение: FastAPI + SQLAlchemy + PostgreSQL/SQLite.
+    </p>
+
+    <div class="grid">
+      <section class="card">
+        <h2 id="formTitle">Добавить участника</h2>
+        <form id="memberForm">
+          <input type="hidden" id="memberId" />
+
+          <label
+            >Имя
+            <input id="name" required />
+          </label>
+
+          <label
+            >Прозвище
+            <input id="nickname" />
+          </label>
+
+          <label
+            >Семья
+            <input id="family" value="DiMeo/Soprano" required />
+          </label>
+
+          <label
+            >Ранг
+            <select id="rank">
+              <option>Boss</option>
+              <option>Underboss</option>
+              <option>Consigliere</option>
+              <option>Capo</option>
+              <option>Soldier</option>
+              <option>Associate</option>
+            </select>
+          </label>
+
+          <label
+            >Статус
+            <select id="status">
+              <option value="active">active</option>
+              <option value="inactive">inactive</option>
+              <option value="deceased">deceased</option>
+            </select>
+          </label>
+
+          <button type="submit">Сохранить</button>
+          <button type="button" id="cancelBtn">Очистить</button>
+        </form>
+        <div id="message" class="message"></div>
+      </section>
+
+      <section class="card">
+        <h2>Участники</h2>
+        <button id="refreshBtn">Обновить список</button>
+        <table>
+          <thead>
+            <tr>
+              <th>Имя</th>
+              <th>Ранг</th>
+              <th>Статус</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="members"></tbody>
+        </table>
+      </section>
+    </div>
+
+    <script>
+      const API = "/api/members";
+      const form = document.getElementById("memberForm");
+      const message = document.getElementById("message");
+
+      function setMessage(text, error = false) {
+        message.textContent = text;
+        message.className = error ? "message danger" : "message";
+      }
+
+      function resetForm() {
+        document.getElementById("memberId").value = "";
+        document.getElementById("name").value = "";
+        document.getElementById("nickname").value = "";
+        document.getElementById("family").value = "DiMeo/Soprano";
+        document.getElementById("rank").value = "Boss";
+        document.getElementById("status").value = "active";
+        document.getElementById("formTitle").textContent = "Добавить участника";
+      }
+
+      async function loadMembers() {
+        const response = await fetch(API);
+        const data = await response.json();
+        const tbody = document.getElementById("members");
+        tbody.innerHTML = "";
+
+        for (const member of data) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+      <td>${member.name}</td>
+      <td>${member.rank}</td>
+      <td>${member.status}</td>
+      <td>
+        <button data-edit="${member.id}">Изменить</button>
+        <button data-delete="${member.id}">Удалить</button>
+      </td>`;
+          tbody.appendChild(tr);
+        }
+      }
+
+      async function getMember(id) {
+        const response = await fetch(`${API}/${id}`);
+        if (!response.ok) throw new Error("Не удалось получить запись");
+        return response.json();
+      }
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const id = document.getElementById("memberId").value;
+        const payload = {
+          name: document.getElementById("name").value,
+          nickname: document.getElementById("nickname").value || null,
+          family: document.getElementById("family").value,
+          rank: document.getElementById("rank").value,
+          status: document.getElementById("status").value,
+        };
+
+        const response = await fetch(id ? `${API}/${id}` : API, {
+          method: id ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          setMessage("Ошибка сохранения записи", true);
+          return;
+        }
+
+        setMessage(id ? "Запись обновлена" : "Запись создана");
+        resetForm();
+        await loadMembers();
+      });
+
+      document
+        .getElementById("members")
+        .addEventListener("click", async (event) => {
+          const editId = event.target.dataset.edit;
+          const deleteId = event.target.dataset.delete;
+
+          if (editId) {
+            const member = await getMember(editId);
+            document.getElementById("memberId").value = member.id;
+            document.getElementById("name").value = member.name;
+            document.getElementById("nickname").value = member.nickname || "";
+            document.getElementById("family").value = member.family;
+            document.getElementById("rank").value = member.rank;
+            document.getElementById("status").value = member.status;
+            document.getElementById("formTitle").textContent =
+              "Изменить участника";
+          }
+
+          if (deleteId) {
+            const response = await fetch(`${API}/${deleteId}`, {
+              method: "DELETE",
+            });
+            if (response.ok) {
+              setMessage("Запись удалена");
+              resetForm();
+              await loadMembers();
+            } else {
+              setMessage("Ошибка удаления", true);
+            }
+          }
+        });
+
+      document.getElementById("cancelBtn").addEventListener("click", resetForm);
+      document
+        .getElementById("refreshBtn")
+        .addEventListener("click", loadMembers);
+
+      loadMembers().catch(() =>
+        setMessage("Не удалось загрузить данные", true),
+      );
+    </script>
+  </body>
+</html>
